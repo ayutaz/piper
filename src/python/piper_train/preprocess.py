@@ -14,6 +14,8 @@ from multiprocessing import JoinableQueue, Process, Queue
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
+import pyopenjtalk
+
 from piper_phonemize import (
     phonemize_espeak,
     phonemize_codepoints,
@@ -38,6 +40,9 @@ class PhonemeType(str, Enum):
 
     TEXT = "text"
     """Phonemes come from text itself"""
+
+    OPENJTALK = "openjtalk"
+    """Phonemes come from pyopenjtalk for Japanese"""
 
 
 def main() -> None:
@@ -118,6 +123,11 @@ def main() -> None:
 
     # Ensure enum
     args.phoneme_type = PhonemeType(args.phoneme_type)
+
+    # 日本語の場合は自動的に OPENJTALK を使用
+    if args.language == "ja":
+        args.phoneme_type = PhonemeType.OPENJTALK
+        _LOGGER.info("Using pyopenjtalk for Japanese phonemization")
 
     # Convert to paths and create output directories
     args.input_dir = Path(args.input_dir)
@@ -208,6 +218,8 @@ def main() -> None:
     # Start workers
     if args.phoneme_type == PhonemeType.TEXT:
         target = phonemize_batch_text
+    elif args.phoneme_type == PhonemeType.OPENJTALK:
+        target = phonemize_batch_openjtalk
     else:
         target = phonemize_batch_espeak
 
@@ -377,6 +389,53 @@ def phonemize_batch_text(
             queue_in.task_done()
     except Exception:
         _LOGGER.exception("phonemize_batch_text")
+
+
+def phonemize_batch_openjtalk(
+    args: argparse.Namespace, queue_in: JoinableQueue, queue_out: Queue
+):
+    try:
+        casing = get_text_casing(args.text_casing)
+        silence_detector = make_silence_detector()
+
+        while True:
+            utt_batch = queue_in.get()
+            if utt_batch is None:
+                break
+
+            for utt in utt_batch:
+                try:
+                    _LOGGER.debug(utt)
+                    # pyopenjtalk で音素化
+                    phonemes = pyopenjtalk.g2p(casing(utt.text), kana=False)
+                    # 音素をリストに変換
+                    utt.phonemes = phonemes.split()
+                    # phoneme_ids は phoneme_id_map から取得
+                    utt.phoneme_ids = []
+                    for phoneme in utt.phonemes:
+                        if phoneme in args.phoneme_id_map:
+                            utt.phoneme_ids.extend(args.phoneme_id_map[phoneme])
+                        else:
+                            utt.missing_phonemes[phoneme] += 1
+                            _LOGGER.warning(f"Missing phoneme: {phoneme}")
+
+                    if not args.skip_audio:
+                        utt.audio_norm_path, utt.audio_spec_path = cache_norm_audio(
+                            utt.audio_path,
+                            args.cache_dir,
+                            silence_detector,
+                            args.sample_rate,
+                        )
+                    queue_out.put(utt)
+                except TimeoutError:
+                    _LOGGER.error("Skipping utterance due to timeout: %s", utt)
+                except Exception:
+                    _LOGGER.exception("Failed to process utterance: %s", utt)
+                    queue_out.put(None)
+
+            queue_in.task_done()
+    except Exception:
+        _LOGGER.exception("phonemize_batch_openjtalk")
 
 
 # -----------------------------------------------------------------------------

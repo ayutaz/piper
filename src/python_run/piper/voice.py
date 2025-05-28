@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import onnxruntime
+import pyopenjtalk
 from piper_phonemize import phonemize_codepoints, phonemize_espeak, tashkeel_run
 
 from .config import PhonemeType, PiperConfig
@@ -66,6 +67,12 @@ class PiperVoice:
 
         if self.config.phoneme_type == PhonemeType.TEXT:
             return phonemize_codepoints(text)
+
+        if self.config.phoneme_type == PhonemeType.OPENJTALK:
+            # pyopenjtalk で音素化
+            phonemes = pyopenjtalk.g2p(text, kana=False)
+            # 音素をリストに変換して返す
+            return [phonemes.split()]
 
         raise ValueError(f"Unexpected phoneme type: {self.config.phoneme_type}")
 
