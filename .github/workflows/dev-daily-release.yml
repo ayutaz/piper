@@ -57,6 +57,7 @@ jobs:
             BUILD_DATE=$(date +'%Y-%m-%d')
             BUILD_TIME=$(date -u +'%Y-%m-%d %H:%M:%S UTC')
             
+            # 説明文を一時ファイルに書き込み
             {
               echo "Development build for ${BUILD_DATE}"
               echo ""
@@ -69,7 +70,8 @@ jobs:
               echo "- プラットフォーム: Linux (x86_64, ARM64, ARMv7), Windows (x64), macOS (x64, ARM64)"
             } > description.txt
             
-            echo "description<<<$(cat description.txt)" >> $GITHUB_OUTPUT
+            # 説明文を1行に変換して出力
+            echo "description=$(cat description.txt | tr '\n' ' ' | sed 's/  */ /g')" >> $GITHUB_OUTPUT
           fi
 
       - name: Create release
