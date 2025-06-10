@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
-      release_name: ${{ steps.get_release_name.outputs.RELEASE_NAME }}
+      release_name: ${{ steps.get_release_name.outputs.name }}
     steps:
       - uses: actions/checkout@v4.2.2
         with:
@@ -43,14 +43,14 @@ jobs:
         id: get_release_name
         run: |
           if [ -n "${{ github.event.inputs.release_name }}" ]; then
-            echo "RELEASE_NAME=${{ github.event.inputs.release_name }}" >> $GITHUB_OUTPUT
+            echo "name=${{ github.event.inputs.release_name }}" >> $GITHUB_OUTPUT
           else
             DATE=$(date +'%Y%m%d')
-            echo "RELEASE_NAME=dev-${DATE}" >> $GITHUB_OUTPUT
+            echo "name=dev-${DATE}" >> $GITHUB_OUTPUT
           fi
           
           if [ -n "${{ github.event.inputs.release_description }}" ]; then
-            echo "RELEASE_DESCRIPTION=${{ github.event.inputs.release_description }}" >> $GITHUB_OUTPUT
+            echo "description=${{ github.event.inputs.release_description }}" >> $GITHUB_OUTPUT
           else
             COMMIT_SHA=$(git rev-parse --short HEAD)
             COMMIT_MSG=$(git log -1 --pretty=%B)
@@ -69,7 +69,7 @@ jobs:
               echo "- プラットフォーム: Linux (x86_64, ARM64, ARMv7), Windows (x64), macOS (x64, ARM64)"
             } > description.txt
             
-            echo "RELEASE_DESCRIPTION<<<$(cat description.txt)" >> $GITHUB_OUTPUT
+            echo "description<<<$(cat description.txt)" >> $GITHUB_OUTPUT
           fi
 
       - name: Create release
@@ -78,9 +78,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          tag_name: ${{ steps.get_release_name.outputs.RELEASE_NAME }}
-          release_name: ${{ steps.get_release_name.outputs.RELEASE_NAME }}
-          body: ${{ steps.get_release_name.outputs.RELEASE_DESCRIPTION }}
+          tag_name: ${{ steps.get_release_name.outputs.name }}
+          release_name: ${{ steps.get_release_name.outputs.name }}
+          body: ${{ steps.get_release_name.outputs.description }}
           draft: false
           prerelease: false
 
