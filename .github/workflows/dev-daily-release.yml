@@ -54,18 +54,22 @@ jobs:
           else
             COMMIT_SHA=$(git rev-parse --short HEAD)
             COMMIT_MSG=$(git log -1 --pretty=%B)
+            BUILD_DATE=$(date +'%Y-%m-%d')
+            BUILD_TIME=$(date -u +'%Y-%m-%d %H:%M:%S UTC')
             
-            cat << EOF >> $GITHUB_OUTPUT
-            RELEASE_DESCRIPTION=Development build for $(date +'%Y-%m-%d')
+            {
+              echo "Development build for ${BUILD_DATE}"
+              echo ""
+              echo "## 変更内容"
+              echo "- コミット: ${COMMIT_SHA}"
+              echo "- メッセージ: ${COMMIT_MSG}"
+              echo ""
+              echo "## ビルド情報"
+              echo "- ビルド日時: ${BUILD_TIME}"
+              echo "- プラットフォーム: Linux (x86_64, ARM64, ARMv7), Windows (x64), macOS (x64, ARM64)"
+            } > description.txt
             
-            ## 変更内容
-            - コミット: \${COMMIT_SHA}
-            - メッセージ: \${COMMIT_MSG}
-            
-            ## ビルド情報
-            - ビルド日時: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
-            - プラットフォーム: Linux (x86_64, ARM64, ARMv7), Windows (x64), macOS (x64, ARM64)
-            EOF
+            echo "RELEASE_DESCRIPTION<<<$(cat description.txt)" >> $GITHUB_OUTPUT
           fi
 
       - name: Create release
