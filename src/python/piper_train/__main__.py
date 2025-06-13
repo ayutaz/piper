@@ -34,6 +34,11 @@ def main():
         "--resume_from_single_speaker_checkpoint",
         help="For multi-speaker models only. Converts a single-speaker checkpoint to multi-speaker and resumes training",
     )
+    parser.add_argument(
+        "--torch-compile",
+        action="store_true",
+        help="Compile the model with torch.compile() for faster training (requires PyTorch 2.0+).",
+    )
     Trainer.add_argparse_args(parser)
     VitsModel.add_model_specific_args(parser)
     parser.add_argument("--seed", type=int, default=1234)
@@ -88,6 +93,29 @@ def main():
         dataset=[dataset_path],
         **dict_args,
     )
+
+    # ------------------------------------------------------------------
+    # Optional: speed-up with torch.compile (PyTorch 2.0+)
+    # Compile **after** the model has been instantiated but **before** any
+    # weight loading / Trainer.fit so that subsequent operations use the
+    # compiled graph.  We keep the original object reference so that any
+    # checkpoint loading done below still works as expected.
+    # ------------------------------------------------------------------
+    if args.torch_compile:
+        if hasattr(torch, "compile"):
+            try:
+                _LOGGER.info("Compiling model with torch.compile …")
+                model = torch.compile(model)  # type: ignore[attr-defined]
+                _LOGGER.info("torch.compile enabled successfully.")
+            except Exception as compile_err:
+                _LOGGER.warning(
+                    "torch.compile failed (%s). Continuing without compilation.",
+                    compile_err,
+                )
+        else:
+            _LOGGER.warning(
+                "This version of PyTorch does not support torch.compile. Ignoring --torch-compile flag."
+            )
 
     if args.resume_from_single_speaker_checkpoint:
         assert (
