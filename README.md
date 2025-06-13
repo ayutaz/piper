@@ -9,6 +9,7 @@ Piper is used in a [variety of projects](#people-using-piper).
   * Linux (amd64, arm64)
   * macOS (x64, arm64)
   * Windows (x64)
+* PyTorch 2.x 環境で `--torch-compile` フラグを付けると、学習時に `torch.compile` による JIT 最適化を行い高速化が可能
 
 ## 関連記事
 * [LJSpeechを使って英語のpiperの事前学習モデルを作成する](https://ayousanz.hatenadiary.jp/entry/2025/05/26/230341)
