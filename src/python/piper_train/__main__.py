@@ -94,28 +94,10 @@ def main():
         **dict_args,
     )
 
-    # ------------------------------------------------------------------
-    # Optional: speed-up with torch.compile (PyTorch 2.0+)
-    # Compile **after** the model has been instantiated but **before** any
-    # weight loading / Trainer.fit so that subsequent operations use the
-    # compiled graph.  We keep the original object reference so that any
-    # checkpoint loading done below still works as expected.
-    # ------------------------------------------------------------------
-    if args.torch_compile:
-        if hasattr(torch, "compile"):
-            try:
-                _LOGGER.info("Compiling model with torch.compile …")
-                model = torch.compile(model)  # type: ignore[attr-defined]
-                _LOGGER.info("torch.compile enabled successfully.")
-            except Exception as compile_err:
-                _LOGGER.warning(
-                    "torch.compile failed (%s). Continuing without compilation.",
-                    compile_err,
-                )
-        else:
-            _LOGGER.warning(
-                "This version of PyTorch does not support torch.compile. Ignoring --torch-compile flag."
-            )
+    # Optional: compile with torch.compile for speed.
+    # Done *after* model instantiation but *before* Trainer.fit so that all
+    # subsequent operations use the compiled graph.
+    model = compile_model(model, args.torch_compile)
 
     if args.resume_from_single_speaker_checkpoint:
         assert (
@@ -200,6 +182,48 @@ def load_state_dict(model, saved_state_dict):
             new_state_dict[k] = v
 
     model.load_state_dict(new_state_dict)
+
+
+# -----------------------------------------------------------------------------
+# Helper utilities
+# -----------------------------------------------------------------------------
+
+
+def compile_model(model: "torch.nn.Module", enable: bool):  # type: ignore[name-defined]
+    """Optionally compile a PyTorch model with ``torch.compile``.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The model to compile.
+    enable : bool
+        Whether to attempt compilation.
+
+    Returns
+    -------
+    torch.nn.Module
+        Compiled (or original) model instance.
+    """
+
+    if not enable:
+        return model
+
+    if not hasattr(torch, "compile"):
+        _LOGGER.warning(
+            "This version of PyTorch does not support torch.compile. Skipping compilation."
+        )
+        return model
+
+    try:
+        _LOGGER.info("Compiling model with torch.compile …")
+        model = torch.compile(model)  # type: ignore[attr-defined]
+        _LOGGER.info("torch.compile enabled successfully.")
+    except Exception as compile_err:  # pragma: no cover
+        _LOGGER.warning(
+            "torch.compile failed (%s). Continuing without compilation.", compile_err
+        )
+
+    return model
 
 
 # -----------------------------------------------------------------------------
